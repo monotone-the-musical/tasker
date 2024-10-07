@@ -1,0 +1,4 @@
+tasker-tasks-cli
+configparser
+iterfzf
+python-dateutil
