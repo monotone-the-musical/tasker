@@ -12,6 +12,7 @@ from subprocess import call
 import datetime
 from dateutil import parser
 from iterfzf import iterfzf
+import webbrowser
 
 configfile = "./tasker.conf"
 
@@ -44,6 +45,8 @@ if not os.path.isfile(configfile):
   configfileobject.write("[Main]\n")
   configfileobject.write('default_category = NONE\n')
   configfileobject.write('default_highlight = | \n')
+  configfileobject.write('# When commented out, will use OS default:\n')
+  configfileobject.write('#browser = /snap/bin/firefox\n')
   configfileobject.write("\n")
   configfileobject.close()
 
@@ -51,6 +54,11 @@ config = configparser.ConfigParser()
 config.read(configfile)
 default_category = config.get('Main', 'default_category')
 default_hl = config.get('Main', 'default_highlight')
+try:
+  browser = config.get('Main', 'browser')
+except:
+  browser = False
+
 jsondb=taskerfile
 
 menulabel = {
@@ -66,6 +74,7 @@ menulabel = {
     "exit_tasks":"/categories",
     "sep":"   ",
     "noteflag":"[n]",
+    "linkflag":"[l]",
     "pointer":"=>",
     "completed":"/completed",
     "priority_down":"/priority_down",
@@ -120,30 +129,58 @@ def showtasks(taskerdb,show="task",sortby="task",category=False,subcategory=Fals
         if not p1only:
           if tomorrowonly:
             if thetaskdate == tomorrow:
-              results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
+              try:
+                results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"],record["link"]])
+              except:
+                results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
           elif todayonly:
             if thetaskdate <= today:
-              results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
+              try:
+                results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"],record["link"]])
+              except:
+                results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
+
           elif thetaskdate > today:
-            results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
+            try:
+              results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"],record["link"]])
+            except:
+              results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
         elif record["priority"] == "1":
-          results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
+          try:
+            results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"],record["link"]])
+          except:
+            results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
       elif record["category"] == category:
         if not p1only:
           if tomorrowonly:
             if thetaskdate == tomorrow:
-              results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
+              try:
+                results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"],record["link"]])
+              except:
+                results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
           elif todayonly:
             if thetaskdate <= today:
               if subcategory:
                 if record["subcategory"] == subcategory:
-                  results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
+                  try:
+                    results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"],record["link"]])
+                  except:
+                    results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
               else:
-                results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
+                try:
+                  results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"],record["link"]])
+                except:
+                  results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
           elif thetaskdate > today:
-            results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
+            try:
+              results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"],record["link"]])
+            except:
+              results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
         elif record["priority"] == "1":
-          results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
+          try:
+            results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"],record["link"]])
+          except:
+            results.append([record[show],record["priority"],record["note"],record["category"],record["subcategory"]])
     if returnarray:
       return results
     else:
@@ -171,6 +208,7 @@ def addtask(taskerdb,defaultcat=False,defaultsubcat=False,thetask=False,priority
       "subcategory": "",
       "priority": priority,
       "note": note,
+      "link": link,
       "duedate": str(datetime.datetime.today())
   }
   task_key=hashstring(adictrecord["task"])
@@ -210,23 +248,6 @@ def primove(taskerdb,thecat,down=True):
 def saveit(taskerdb):
   taskerdb = dbfio(jsondb,"write", taskerdb)
   taskerdb = dbfio(jsondb,"read") 
-  return taskerdb
-
-def priorityupdate(taskerdb,task_key,newpriority=False):
-  thetask=taskerdb[task_key]
-  if newpriority:
-    thetask["priority"]=newpriority
-  else:
-    os.system("clear")
-    taskoptionsmenu=["NONE","1","2","3","4","5"]
-    try:
-      task_selection = iterfzf(taskoptionsmenu, cycle=True, multi=False, __extra__=['--no-info','--height=100%','--layout=reverse','--border=rounded',"--border-label= SET PRIORITY: %s " % thetask["task"]])
-    except:
-      task_selection = "NONE"
-    if task_selection is None:
-      task_selection = "NONE"
-    thetask["priority"]=task_selection
-  taskerdb[task_key]=thetask
   return taskerdb
 
 def duedateupdate(taskerdb,task_key,newduedate=False):
@@ -351,6 +372,65 @@ def catupdate(taskerdb,task_key,newcat=False,defaultcat=False):
   taskerdb[task_key]=thetask
   return taskerdb
 
+def priorityupdate(taskerdb,task_key,newpriority=False):
+  thetask=taskerdb[task_key]
+  if newpriority:
+    thetask["priority"]=newpriority
+  else:
+    os.system("clear")
+    taskoptionsmenu=["NONE","1","2","3","4","5"]
+    try:
+      task_selection = iterfzf(taskoptionsmenu, cycle=True, multi=False, __extra__=['--no-info','--height=100%','--layout=reverse','--border=rounded',"--border-label= SET PRIORITY: %s " % thetask["task"]])
+    except:
+      task_selection = "NONE"
+    if task_selection is None:
+      task_selection = "NONE"
+    thetask["priority"]=task_selection
+  taskerdb[task_key]=thetask
+  return taskerdb
+
+def linkupdate(taskerdb,task_key):
+  thetask=taskerdb[task_key]
+  os.system("clear")
+  taskoptionsmenu=["launch","edit", "delete", "back"]
+  try:
+    thelink=thetask["link"]
+    if thelink == "":
+      thelink="No link set"
+  except:
+    thelink="No link set"
+  try:
+    task_selection = iterfzf(taskoptionsmenu, cycle=True, multi=False, __extra__=["--header=\n%s\n\n\n" % thelink,'--no-info','--height=100%','--layout=reverse','--border=rounded',"--border-label= LINK "])
+  except:
+    task_selection = "NONE"
+  if task_selection == "edit":
+    newlink=input("\nURL: ")
+    if newlink != "":
+      thetask["link"]=newlink
+      taskerdb[task_key]=thetask
+      taskerdb=saveit(taskerdb)
+      garbage=input("\n\nLink updated. Hit [enter] to continue.")
+    else:
+      garbage=input("\n\nLink NOT updated. Hit [enter] to continue.")
+  elif task_selection == "delete":
+    userinput=input("\n\nDelete link? Are you sure? (y|N): ")
+    if userinput == "y":
+      thetask["link"]=""
+      taskerdb[task_key]=thetask
+      taskerdb=saveit(taskerdb)
+      garbage=input("\n\nLink removed. Hit [enter] to continue.")
+    else:
+      garbage=input("\n\nDelete link aborted. Hit [enter] to continue.")
+  elif task_selection == "launch":
+    if thelink != "No link set":
+      if not browser:
+        webbrowser.open(thelink)
+      else:
+        urlfmt="\"%s\"" % thelink 
+        torun = "%s %s" % (browser, urlfmt)
+        os.system(torun)
+  return taskerdb
+
 def subcatupdate(taskerdb,task_key,newsubcat=False,defaultsubcat=False):
   thetask=taskerdb[task_key]
   if newsubcat:
@@ -400,6 +480,7 @@ def taskoptions(taskerdb,task_key):
   taskoptionsmenu.append("/subcategory")
   taskoptionsmenu.append("/edit")
   taskoptionsmenu.append("/note")
+  taskoptionsmenu.append("/link")
   taskoptionsmenu.append("/delete")
   taskoptionsmenu.append("/completed")
   taskoptionsmenu.append(menulabel["sep"])
@@ -454,6 +535,8 @@ def taskoptions(taskerdb,task_key):
         hasnote=False
       else:
         hasnote=True
+    elif task_selection == "/link":
+      taskerdb=linkupdate(taskerdb,task_key)
     elif task_selection == "/edit":
       task_selection = menulabel["back"]
       returnresult=taskupdate(taskerdb,task_key)
@@ -560,6 +643,14 @@ def taskerwrapper(usercategory=False):
             somepriority=" "
           else:
             somepriority=sometask[1]
+          linkcheck=""
+          try:
+            if sometask[5] == "":
+              linkcheck=""
+            else:
+              linkcheck=menulabel["linkflag"]
+          except:
+            linkcheck=""
           if sometask[2] == "":
             notecheck=""
           else:
@@ -569,12 +660,12 @@ def taskerwrapper(usercategory=False):
           else:
             if somepriority == "1":
               if default_hl == "":
-                aredresult = somepriority+" - "+sometask[0]+" "+notecheck
+                aredresult = somepriority+" - "+sometask[0]+" "+notecheck+" "+linkcheck
               else:
-                aredresult = default_hl+" "+sometask[0]+" "+notecheck+" "+default_hl
+                aredresult = default_hl+" "+sometask[0]+" "+notecheck+" "+linkcheck+" "+default_hl
               taskmenu.append(aredresult)
             else:
-              taskmenu.append(somepriority+" - "+sometask[0]+" "+notecheck)
+              taskmenu.append(somepriority+" - "+sometask[0]+" "+notecheck+" "+linkcheck)
         taskmenu.append(menulabel["sep"])
         if todaytasks:
           if otherlength > 0:

@@ -1,6 +1,6 @@
 [project]
 name = "tasker-tasks-cli"
-version = "0.0.1"
+version = "0.0.2"
 authors = [
   { name="MTM", email="monotone.the.musical@gmail.com" },
 ]
