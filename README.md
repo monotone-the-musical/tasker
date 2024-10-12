@@ -27,7 +27,7 @@ Type ```tasker``` to launch.
 
  - Config file location is set to ```~/tasker/conf/tasker.conf```
 
- - When executing ```tasker```, it has its own menu system. However you can incorporate tasker into your own scripts using command line options if you wish. EG: ```tasker -n get milk personal 2"```
+ - When executing ```tasker```, it has its own menu system. However you can incorporate tasker into your own scripts using command line options if you wish. EG: ```tasker -n get milk personal 2```
 
 ### Dependencies
 
