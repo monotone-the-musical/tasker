@@ -202,6 +202,7 @@ def addtask(taskerdb,defaultcat=False,defaultsubcat=False,thetask=False,priority
     return
   category = defaultcat
   note = ""
+  link = ""
   adictrecord = {
       "task": task,
       "category": category,
