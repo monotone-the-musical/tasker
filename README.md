@@ -7,8 +7,6 @@ pipx install tasker-tasks-cli
 pipx ensurepath
 ```
 
-Ensure you use ```pipx``` to install globally without polluting your system-wide packages.
-
 ### Description
 
 *tasker* is a cli-based task manager.

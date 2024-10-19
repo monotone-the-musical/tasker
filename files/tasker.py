@@ -364,7 +364,6 @@ def catupdate(taskerdb,task_key,newcat=False,defaultcat=False):
       task_selection = "NONE"
     if task_selection is None:
       task_selection = "NONE"
-
     if task_selection == "OTHER":
       newcat=input("\nCategory: ").lower()
       taskerdb=catupdate(taskerdb,task_key,newcat)
@@ -379,7 +378,7 @@ def priorityupdate(taskerdb,task_key,newpriority=False):
     thetask["priority"]=newpriority
   else:
     os.system("clear")
-    taskoptionsmenu=["NONE","1","2","3","4","5"]
+    taskoptionsmenu=["NONE","1","2","3","4","5","6","7","8","9"]
     try:
       task_selection = iterfzf(taskoptionsmenu, cycle=True, multi=False, __extra__=['--no-info','--height=100%','--layout=reverse','--border=rounded',"--border-label= SET PRIORITY: %s " % thetask["task"]])
     except:
@@ -451,14 +450,12 @@ def subcatupdate(taskerdb,task_key,newsubcat=False,defaultsubcat=False):
       if rec != defaultsubcat and rec != "":
         taskoptionsmenu.append(rec)
     taskoptionsmenu.append("OTHER")
-
     try:
       task_selection = iterfzf(taskoptionsmenu, cycle=True, multi=False, __extra__=['--no-info','--height=100%','--layout=reverse','--border=rounded',"--border-label= SET SUB CATEGORY: %s " % thetask["task"]])
     except:
       task_selection = "NONE"
     if task_selection is None:
       task_selection = "NONE"
-
     if task_selection == "OTHER":
       newsubcat=input("\nSub-Category: ").lower()
       taskerdb=subcatupdate(taskerdb,task_key,newsubcat)
@@ -485,6 +482,7 @@ def taskoptions(taskerdb,task_key):
   taskoptionsmenu.append("/delete")
   taskoptionsmenu.append("/completed")
   taskoptionsmenu.append(menulabel["sep"])
+  taskoptionsmenu.append(menulabel["exit"])
   taskoptionsmenu.append(menulabel["back"])
 
   weekdays=["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
@@ -515,6 +513,9 @@ def taskoptions(taskerdb,task_key):
       task_selection = menulabel["back"]
       taskerdb=priorityupdate(taskerdb,task_key)
       taskerdb=saveit(taskerdb)
+    elif task_selection == "/exit":
+      taskerdb=saveit(taskerdb)
+      os._exit(0)
     elif task_selection == "/category":
       task_selection = menulabel["back"]
       taskerdb=catupdate(taskerdb,task_key)
@@ -687,14 +688,19 @@ def taskerwrapper(usercategory=False):
         taskmenu.append(menulabel["back"])
         taskmenuindexed = [f"{index} {value}" for index, value in enumerate(taskmenu)]
         try:
-          chosen_taskfull = iterfzf(taskmenuindexed, cycle=True, multi=False, __extra__=['--no-info','--height=100%','--layout=reverse','--with-nth=2..','--border=rounded',"--border-label= /%s (%s tasks) " % (chosen_category_string,str(len(tasklist)))])
+          chosen_taskfull = iterfzf(taskmenuindexed, cycle=True, multi=True, __extra__=['--no-info','--height=100%','--layout=reverse','--with-nth=2..','--border=rounded',"--border-label= /%s (%s tasks) " % (chosen_category_string,str(len(tasklist)))])
         except:
           chosen_task = menulabel["sep"]
           chosen_task_index = 0 
         try:
-          chosen_task_index_str, chosen_task = chosen_taskfull.split(' ', 1)
-          chosen_task_index = int(chosen_task_index_str)
-          chosen_task = chosen_task.lstrip()
+          if len(chosen_taskfull) == 1:
+            chosen_task_index_str, chosen_task = chosen_taskfull[0].split(' ', 1)
+            chosen_task_index = int(chosen_task_index_str)
+          else:
+            taskerdb=multiselectoptions(taskerdb, chosen_taskfull,filteredtasklist)
+            taskerdb=saveit(taskerdb)
+            chosen_task = menulabel["sep"]
+            chosen_task_index = 0 
         except:
           chosen_task = menulabel["back"]
           chosen_task_index = 0 
@@ -739,6 +745,159 @@ def taskerwrapper(usercategory=False):
           except:
             pass
 
+def multiselectoptions(taskerdb, multitasks, filteredtasklist):
+  os.system("clear")
+  theheader=""
+  taskoptionsmenu=["BACK","priority","due","completed","category","subcategory","delete"]
+  for atask in multitasks:
+    task_index_str, task = atask.split(' ', 1)
+    task_index = int(task_index_str)
+    theheader = theheader + " " + task + "\n"
+  task_selection = iterfzf(taskoptionsmenu, cycle=True, multi=False, __extra__=["--header=\n%s\n" % theheader,'--no-info','--height=100%','--layout=reverse','--border=rounded',"--border-label= MULTI-SELECT "])
+  if task_selection == "priority":
+    priorityoptionsmenu=["NONE","1","2","3","4","5","6","7","8","9"]
+    try:
+      priority_selection = iterfzf(priorityoptionsmenu, cycle=True, multi=False, __extra__=['--no-info','--height=100%','--layout=reverse','--border=rounded',"--border-label= MULTI-SELECT: Set Priority "])
+    except:
+      priority_selection = "CANCEL"
+    if priority_selection is None:
+      priority_selection = "CANCEL"
+    if priority_selection != "CANCEL":
+      for atask in multitasks:
+        task_index_str, task = atask.split(' ', 1)
+        task_index = int(task_index_str)
+        tasktext = filteredtasklist[task_index][0]
+        if tasktext != "subcatcheck419":
+          task_key=hashstring(tasktext)
+          thetask=taskerdb[task_key]
+          thetask["priority"]=priority_selection
+  elif task_selection == "completed":
+    for atask in multitasks:
+      task_index_str, task = atask.split(' ', 1)
+      task_index = int(task_index_str)
+      tasktext = filteredtasklist[task_index][0]
+      if tasktext != "subcatcheck419":
+        task_key=hashstring(tasktext)
+        thetask=taskerdb[task_key]
+        thetask["category"]="completed"
+        thetask["priority"]="NONE"
+  elif task_selection == "category":
+    tmparray=showtasks(taskerdb,show="category",sortby="category",category=False,returnarray=True)
+    catmenu=[]
+    for rec in tmparray:
+      catmenu.append(rec)
+    catmenu.append("OTHER")
+    try:
+      cat_selection = iterfzf(catmenu, cycle=True, multi=False, __extra__=['--no-info','--height=100%','--layout=reverse','--border=rounded',"--border-label= MULTI-SELECT: Set Category"])
+    except:
+      cat_selection = "CANCEL"
+    if cat_selection is None:
+      cat_selection="CANCEL"
+    if cat_selection == "OTHER":
+      try:
+        cat_selection=input("\nCategory: ").lower()
+      except:
+        cat_selection="CANCEL"
+      if cat_selection is None:
+        cat_selection="CANCEL"
+    if cat_selection != "CANCEL":
+      for atask in multitasks:
+        task_index_str, task = atask.split(' ', 1)
+        task_index = int(task_index_str)
+        tasktext = filteredtasklist[task_index][0]
+        if tasktext != "subcatcheck419":
+          task_key=hashstring(tasktext)
+          thetask=taskerdb[task_key]
+          thetask["category"]=cat_selection
+  elif task_selection == "subcategory":
+    tmparray=showtasks(taskerdb,show="subcategory",sortby="subcategory",category=False,returnarray=True)
+    subcatmenu=[]
+    subcatmenu.append("NONE")
+    for rec in tmparray:
+      if rec != "":
+        subcatmenu.append(rec)
+    subcatmenu.append("OTHER")
+    try:
+      subcat_selection = iterfzf(subcatmenu, cycle=True, multi=False, __extra__=['--no-info','--height=100%','--layout=reverse','--border=rounded',"--border-label= MULTI-SELECT: Set Subcategory"])
+    except:
+      subcat_selection = "CANCEL"
+    if subcat_selection is None:
+      subcat_selection="CANCEL"
+    if subcat_selection == "OTHER":
+      try:
+        subcat_selection=input("\nSubcategory: ").lower()
+      except:
+        subcat_selection="CANCEL"
+      if subcat_selection is None:
+        subcat_selection="CANCEL"
+    if subcat_selection != "CANCEL":
+      for atask in multitasks:
+        task_index_str, task = atask.split(' ', 1)
+        task_index = int(task_index_str)
+        tasktext = filteredtasklist[task_index][0]
+        if tasktext != "subcatcheck419":
+          task_key=hashstring(tasktext)
+          thetask=taskerdb[task_key]
+          if subcat_selection == "NONE":
+            thetask["subcategory"]= ""
+          else:
+            thetask["subcategory"]=subcat_selection
+  elif task_selection == "delete":
+    task_selection = menulabel["back"]
+    confirm=input("\n\nDelete these tasks. Are you sure? (y/n): ")
+    if confirm == "y":
+      for atask in multitasks:
+        task_index_str, task = atask.split(' ', 1)
+        task_index = int(task_index_str)
+        tasktext = filteredtasklist[task_index][0]
+        if tasktext != "subcatcheck419":
+          task_key=hashstring(tasktext)
+          del taskerdb[task_key]
+  elif task_selection == "due":
+    weekdays=["monday","tuesday","wednesday","thursday","friday","saturday","sunday"]
+    today = datetime.datetime.today()
+    tomorrow = datetime.datetime.today() + datetime.timedelta(1)
+    p2days = datetime.datetime.today() + datetime.timedelta(2)
+    p3days = datetime.datetime.today() + datetime.timedelta(3)
+    p4days = datetime.datetime.today() + datetime.timedelta(4)
+    p5days = datetime.datetime.today() + datetime.timedelta(5)
+    p6days = datetime.datetime.today() + datetime.timedelta(6)
+    p1week = datetime.datetime.today() + datetime.timedelta(7)
+    thedatelist=[today,tomorrow,p2days,p3days,p4days,p5days,p6days,p1week]
+    duetaskoptionsmenu=[]
+    duetaskoptionsmenu.append("today")
+    duetaskoptionsmenu.append("tomorrow")
+    duetaskoptionsmenu.append(weekdays[p2days.weekday()])
+    duetaskoptionsmenu.append(weekdays[p3days.weekday()])
+    duetaskoptionsmenu.append(weekdays[p4days.weekday()])
+    duetaskoptionsmenu.append(weekdays[p5days.weekday()])
+    duetaskoptionsmenu.append(weekdays[p6days.weekday()])
+    duetaskoptionsmenu.append("1 week")
+    task_selection_indexed = [f"{index} {value}" for index, value in enumerate(duetaskoptionsmenu)]
+    try:
+      duetask_selection_full = iterfzf(task_selection_indexed, cycle=True, multi=False, __extra__=['--no-info','--height=100%','--layout=reverse','--with-nth=2..','--border=rounded',"--border-label= MULTI-SELECT: Due Date "])
+    except:
+      duetask_selection_full = "CANCEL"
+    if duetask_selection_full is None:
+      duetask_selection_full = "CANCEL"
+    if duetask_selection_full != "CANCEL":
+      try:
+        duetask_index_str, duetask_selection = duetask_selection_full.split(' ', 1)
+        duetask_index = int(duetask_index_str)
+        duetask_selection = duetask_selection.lstrip()
+      except:
+        duetask_selection = "today"
+        duetask_index = 0 
+      for atask in multitasks:
+        task_index_str, task = atask.split(' ', 1)
+        task_index = int(task_index_str)
+        tasktext = filteredtasklist[task_index][0]
+        if tasktext != "subcatcheck419":
+          task_key=hashstring(tasktext)
+          thetask=taskerdb[task_key]
+          thetask["duedate"]=str(thedatelist[duetask_index])
+  return taskerdb
+
 #
 # MAIN
 #
@@ -753,7 +912,6 @@ elif args.newtask:
   inputstring=""
   for aword in args.newtask:
     inputstring=inputstring+" "+aword
-
   inputstring=inputstring.strip()
   datain = inputstring.rsplit(' ', 2)[0]
   catin = inputstring.rsplit()[-2]
