@@ -13,6 +13,7 @@ import datetime
 from dateutil import parser
 from iterfzf import iterfzf
 import webbrowser
+from collections import defaultdict
 
 configfile = "./tasker.conf"
 
@@ -80,6 +81,7 @@ menulabel = {
     "priority_down":"/priority_down",
     "priority_up":"/priority_up",
     "refresh":"/refresh",
+    "schedule":"/schedule",
 }
 
 def dbfio(jsonfile,iotype,vtable={}):
@@ -187,6 +189,74 @@ def showtasks(taskerdb,show="task",sortby="task",category=False,subcategory=Fals
       for showrec in results:
         print (showrec)
 
+def showschedule(category_filter):
+  import os, json, datetime, sys
+  from collections import defaultdict
+  os.system("clear")
+  sys.stdout.write("\033[?25l")  # Hide cursor
+  sys.stdout.flush()
+  try:
+    with open(taskerfile, "r") as f:
+      data = json.load(f)
+    today = datetime.datetime.today().date()
+    tasks_by_key = defaultdict(list)
+
+    # Prepare each task
+    for task in data.values():
+      if (
+        task.get("category") == category_filter
+        and not task.get("subcategory")
+      ):
+        try:
+          due_dt = datetime.datetime.fromisoformat(task["duedate"])
+          due_date = due_dt.date()
+          if due_date <= today:
+            continue  # Exclude tasks due today or earlier
+          delta_days = (due_date - today).days
+          if delta_days == 1:
+            day_part = "(tomorrow)"
+          else:
+            day_part = f"({delta_days} days)"
+          key = (str(due_date), due_date.strftime("%A"), day_part)
+          tasks_by_key[key].append(task["task"])
+        except Exception as e:
+          print(f"Skipping task with invalid date: {task.get('task')} ({e})")
+
+    if not tasks_by_key:
+      print("No tasks found.\n")
+      input("\n\n<enter> to return")
+      return
+
+    # Calculate alignment
+    max_day_len = max(len(day) for _, day, _ in tasks_by_key)
+    max_label_len = max(len(label) for _, _, label in tasks_by_key)
+
+    # Prepare lines and max width
+    output_lines = []
+    for (datestr, day, label) in sorted(tasks_by_key):
+      group_lines = []
+      for idx, task in enumerate(tasks_by_key[(datestr, day, label)]):
+        if idx == 0:
+          line = f"{datestr} - {day:<{max_day_len}} {label:<{max_label_len}} - {task}"
+        else:
+          line = f"{' ' * len(datestr)}   {' ' * max_day_len} {' ' * max_label_len} - {task}"
+        group_lines.append(line)
+      output_lines.append(group_lines)
+
+    max_line_len = max(len(line) for group in output_lines for line in group)
+    rule = "─" * max_line_len
+
+    # Print output
+    print(rule)
+    for idx, group in enumerate(output_lines):
+      for line in group:
+        print(line)
+      print(rule)
+    input()
+  finally:
+    sys.stdout.write("\033[?25h")  # Show cursor again
+    sys.stdout.flush()
+
 def hashstring(somestring):
   hash_object = hashlib.sha256(somestring.encode('utf-8'))
   return hash_object.hexdigest()
@@ -277,8 +347,8 @@ def duedateupdate(taskerdb,task_key,newduedate=False):
     taskoptionsmenu.append(weekdays[p5days.weekday()])
     taskoptionsmenu.append(weekdays[p6days.weekday()])
     taskoptionsmenu.append("1 week")
+    taskoptionsmenu.append("specify date")
     task_selection_indexed = [f"{index} {value}" for index, value in enumerate(taskoptionsmenu)]
-
     try:
       task_selection_full = iterfzf(task_selection_indexed, cycle=True, multi=False, __extra__=['--no-info','--height=100%','--layout=reverse','--with-nth=2..','--border=rounded',"--border-label= DUE DATE: %s " % thetask["task"]])
     except:
@@ -291,8 +361,20 @@ def duedateupdate(taskerdb,task_key,newduedate=False):
     except:
       task_selection = "today"
       task_index = 0 
-    thetask["duedate"]=str(thedatelist[task_index])
 
+    if task_selection == "specify date":
+      while True:
+        manual_date = input("\nEnter date in format yyyy-mm-dd: ")
+        try:
+          parsed_date = datetime.datetime.strptime(manual_date, "%Y-%m-%d")
+          break
+        except ValueError:
+          print("\nInvalid date. Please try again.")
+
+      newdate=manual_date+" 00:00:00.000000"
+      thetask["duedate"]=str(newdate)
+    else:
+      thetask["duedate"]=str(thedatelist[task_index])
   taskerdb[task_key]=thetask
   return taskerdb
 
@@ -684,6 +766,7 @@ def taskerwrapper(usercategory=False):
         taskmenu.append(menulabel["priority_down"])
         taskmenu.append(menulabel["priority_up"])
         taskmenu.append(menulabel["refresh"])
+        taskmenu.append(menulabel["schedule"])
         taskmenu.append(menulabel["exit"])
         taskmenu.append(menulabel["back"])
         taskmenuindexed = [f"{index} {value}" for index, value in enumerate(taskmenu)]
@@ -709,6 +792,9 @@ def taskerwrapper(usercategory=False):
           taskerdb=dbfio(jsondb,"read") 
         elif chosen_task == menulabel["refresh"]:
           taskerdb=dbfio(jsondb,"read") 
+          pass
+        elif chosen_task == menulabel["schedule"]:
+          showschedule(chosen_category) 
           pass
         elif chosen_task == menulabel["sep"]:
           pass
