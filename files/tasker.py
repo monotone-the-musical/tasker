@@ -364,13 +364,20 @@ def duedateupdate(taskerdb,task_key,newduedate=False):
 
     if task_selection == "specify date":
       while True:
-        manual_date = input("\nEnter date in format yyyy-mm-dd: ")
+        spectoday = datetime.date.today()
+        specstart_date = datetime.date(spectoday.year, 1, 1)
+        specend_date = datetime.date(spectoday.year + 1, 12, 31)
+        specdelta = datetime.timedelta(days=1)
+        specdates = []
+        while specstart_date <= specend_date:
+            specdates.append(str(specstart_date.strftime("%Y-%m-%d")))
+            specstart_date += specdelta
+        manual_date = iterfzf(specdates, cycle=True, multi=False, __extra__=['--no-info','--height=100%','--layout=reverse','--border=rounded',"--border-label= SPECIFY DATE"])
         try:
           parsed_date = datetime.datetime.strptime(manual_date, "%Y-%m-%d")
           break
         except ValueError:
           print("\nInvalid date. Please try again.")
-
       newdate=manual_date+" 00:00:00.000000"
       thetask["duedate"]=str(newdate)
     else:
